@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <meta charset="utf-8">
+    <title>空调</title>
+    <script>
+        (function() {
+            var baseFontSize = 100;
+            var baseWidth = 320;
+            var set = function() {
+                var clientWidth = document.documentElement.clientWidth || window.innerWidth;
+                var rem = 100;
+                if (clientWidth != baseWidth) {
+                    rem = Math.floor(clientWidth / baseWidth * baseFontSize);
+                }
+                document.querySelector('html').style.fontSize = rem + 'px';
+            }
+            set();
+            window.addEventListener('resize', set);
+        }());
+    </script>
+    <link href="css/vue-stone.css" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app" style="margin-top:0px;">
+    <div style="background: #fff;" >
+        <header class="blue_bg" >
+            <div class="temperabox">
+                <div class="cur_tempera">
+                    <span>{{newtemp}}</span>
+                    <p>当前温度°c</p>
+                </div>
+            </div>
+            <ul>
+                <li><span>{{mode_s}}</span><p>当前模式</p></li>
+                <li><span>{{wind_s}}</span><p>当前风速</p></li>
+            </ul>
+        </header>
+        <v-panel  style="border: none;">
+            <div slot="body" class="c-panel-body row-2 u-cross-center" >
+                <div slot="title" class="c-panel-title " style="font-weight: bold;color:#59b8fc"><span>{{power_text}}</span></div>
+                <v-power slot="main" v-model="power_state" ref="power" :hand="true" icon=""></v-power>
+            </div>
+        </v-panel>
+    </div>
+    <v-panel>
+        <div slot="body" class="c-panel-body row-2 u-cross-center">
+            <div slot="title" class="c-panel-title ">温度设置
+                <div  style="margin-top: 10px;color: #59b8fc">
+                    {{countNumber}}℃
+                </div>
+            </div>
+            <v-counter slot="main" ref="counter"></v-counter>
+        </div>
+    </v-panel>
+    <v-panel>
+        <div slot="header" class="c-panel-header u-cross-center">
+            <div class="c-panel-title">模式设置</div>
+        </div>
+        <div slot="body" class="c-panel-body row-2 u-without-padding">
+            <v-modes v-model="grid_active_id" ref="modess"
+                     :numberal="3" :items="grid_data_3"
+            ></v-modes>
+        </div>
+    </v-panel>
+    <v-panel>
+        <div slot="header" class="c-panel-header row-1 u-cross-center">风速调节</div>
+        <div slot="body" class="c-panel-body row-3 u-cross-center">
+            <v-range slot="main" ref="rangeArray"
+                     v-model="range_data_array.value"
+                     :is_step="range_data_array.isStep"
+                     :dots="range_data_array.dots"
+            >
+            </v-range>
+        </div>
+    </v-panel>
+    <v-mask :shown="showMa"></v-mask>
+</div>
+<script src="js/vue.js"></script>
+<script src="js/vue-stone.js"></script>
+<script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript" src="https://static.360buyimg.com/smart/jdsmart-1.0.3.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                isfalse:true,                                //控制频繁操作
+                showMa:false,                                //控制蒙层
+                Energy_Saving: false,                        //节能参数初始化
+                mute_Mode: false,                            //静音参数初始化
+                screen_Display: false,                       //屏显参数初始化
+                power_state: false,                           //开关参数初始化
+                countNumber:22,                              //空调温度初始化
+                power_text:"空调已关闭",
+                mode_s:"制冷",
+                wind_s:"自动",
+                newtemp:"--",
+                grid_active_id: 0,                           //模式参数初始化
+                grid_data_3: [{
+                    text: '制冷',
+                    icon: 'mode-freeze',
+                    id: 0,
+                },{
+                    text: '制热',
+                    icon: 'mode-holiday',
+                    id: 1,
+                },{
+                    text: '通风',
+                    icon: 'mode-cool',
+                    id: 3,
+                }],
+                range_data_array: {
+                    value: {value:0,                          //风速参数初始化
+                        text: '自动'},
+                    isStep: true,
+                    dots: [
+                        {
+                            value:0,
+                            text: '自动'
+                        },
+                        {
+                            value:1,
+                            text: '低速'
+                        },
+                        {
+                            value:2,
+                            text: '中速'                              //滑杆设置
+                        },
+                        {
+                            value:3,
+                            text: '高速'
+                        }
+                    ],
+                },
+            };
+        },
+        mounted() {
+            var self=this;
+            this.$refs.power.$on('change', (value) => { //开机下发
+                if(this.power_state){
+                    self.controlDevice({"command":[{
+                        "stream_id":"power",//启动
+                        "current_value":"1"
+                    }]},function(suc){
+                        self.power_text="空调已开启";
+                        self.power_state=false;
+                    });
+
+                }else{
+                    self.controlDevice({"command":[{
+                        "stream_id":"power",//启动
+                        "current_value":"0"
+                    }]},function(suc){
+                        self.power_text="空调已关闭";
+                        self.power_state=true;
+                    });
+
+                }
+            });
+            this.$refs.counter.$on('increase', () => {//温度加下发
+                self.controlDevice({"command":[{
+                    "stream_id":"settemp",//启动
+                    "current_value": (this.countNumber+1).toString()
+                }]},function(suc){
+                    self.countNumber+=1;
+                    if( self.countNumber==32){
+                        self.$refs.counter.incDisabled=true;
+                    }else{
+                        self.$refs.counter.incDisabled=false;
+                        self.$refs.counter.decDisabled=false;
+                    }
+                });
+            });
+            this.$refs.counter.$on('decrease', () => {//温度减下发
+                self.controlDevice({"command":[{
+                    "stream_id":"settemp",//启动
+                    "current_value": (this.countNumber-1).toString()
+                }]},function(suc){
+                    self.countNumber-=1;
+                    if( self.countNumber==16){
+                        self.$refs.counter.decDisabled=true;
+                    }else{
+                        self.$refs.counter.incDisabled=false;
+                        self.$refs.counter.decDisabled=false;
+                    }
+                });
+            });
+            this.$refs.modess.$on('change', (value) => {//模式下发
+                console.log(value);
+                self.controlDevice({"command":[{
+                    "stream_id":"mode",//启动
+                    "current_value": value.toString()
+                }]},function(suc){
+
+                });
+            });
+            this.$refs.rangeArray.$on('change', (value) => {   //滑竿下发
+                console.log(JSON.stringify(value));
+                self.controlDevice({"command":[{
+                    "stream_id":"mark",//启动
+                    "current_value": value.value.toString()
+                }]},function(suc){
+                });
+            });
+        },
+        created: function () {
+            this.ready();
+        },
+        methods:{
+            ready:function () {
+                var self=this;
+                JDSMART.ready(function(){
+                    self.showButton(true);
+                    self.getInitData();
+                    setInterval(function(){
+                        self.getInfo();
+                    },4000);
+                });
+            },
+            showButton:function (flag) {//配置导航按钮隐藏显示
+                JDSMART.app.config(
+                    {
+                        showBack:flag,
+                        showShare:flag,
+                        showMore:flag
+                    });
+            },
+            getInitData:function(){
+                var self=this;
+                JDSMART.io.initDeviceData(function (suc) {
+                    self.initData(suc);
+                });
+            },initData:function(suc){//初始化析函数
+                var self=this;
+                if(typeof(suc)=="string"){
+                    suc = JSON.parse(suc);
+                }
+                if(suc.device.status){
+                    var status = suc.device.status;
+                    if(status == 0){
+                        JDSMART.app.config({showOnline:true});
+                        self.showMa=true;
+                    }else{
+                        JDSMART.app.config({showOnline:false});
+                        self.showMa=false;
+                    }
+                }
+                //遍历stream数组刷新页面各个参数值
+                $.each(suc["streams"], function(i,val){
+                    if(val["stream_id"] == "power"){
+                        if( parseInt(val["current_value"])==0){
+                            self.power_state =true;
+                            self.power_text="空调已关闭";
+                        }else{
+                            self.power_state =false;
+                            self.power_text="空调已开启";
+                        }
+                    }
+                    if(val["stream_id"] == "curtemp"){
+                        if(parseInt(val["current_value"])>=32){
+                            self.newtemp=32;
+                        }else if(parseInt(val["current_value"])<=16){
+                            self.newtemp =16;
+                        }else{
+                            self.newtemp =parseInt(val["current_value"]);
+                        }
+                    }
+                    if(val["stream_id"] == "settemp"){
+                        if(parseInt(val["current_value"])>=32){
+                            self.countNumber=32;
+                            self.$refs.counter.incDisabled=true;
+                        }else if(parseInt(val["current_value"])<=16){
+                            self.countNumber =16;
+                            self.$refs.counter.decDisabled=true;
+                        }else{
+                            self.countNumber =parseInt(val["current_value"]);
+                            self.$refs.counter.decDisabled=false;
+                            self.$refs.counter.incDisabled=false;
+                        }
+                    }
+
+                    if(val["stream_id"] == "mode"){// 模式
+                        if(parseInt(val["current_value"])==0){
+                            self.mode_s="制冷";
+                        }else if(parseInt(val["current_value"])==1){
+                            self.mode_s="制热";
+                        }else if(parseInt(val["current_value"])==3){
+                            self.mode_s="通风";
+                        }
+                        self.grid_active_id=parseInt(val["current_value"]);
+                        if(parseInt(val["current_value"])==0){
+                            $("header").attr("class","blue_bg");
+                        }else if(parseInt(val["current_value"])==1){
+                            $("header").attr("class","orange_bg");
+                        }else{
+                            $("header").attr("class","green_bg");
+                        }
+                    }
+
+                    if(val["stream_id"] == "mark"){
+                        var t_str="";
+                        var value=parseInt(val["current_value"]);
+                        if(value==0){
+                            t_str="自动";
+                        }else if(value==1){
+                            t_str="低速";
+                        }else if(value==2){
+                            t_str="中速";
+                        }else if(value==3){
+                            t_str="高速";
+                        }
+                        self.wind_s=t_str;
+                        self.range_data_array.value={value:parseInt(val["current_value"]),
+                            text:t_str
+                        };
+                    }
+                });
+            },getInfo:function(){
+                var self=this;
+                JDSMART.io.getSnapshot(
+                    function (suc) {
+                        self.reflashData(suc);
+                    },function (error) {
+                        // 执行失败的回调
+                        self.toast(error.errorInfo);
+                    }
+                );
+            },reflashData:function(suc){
+                var self=this;
+                if(typeof(suc)=="string"){
+                    suc = JSON.parse(suc);
+                }
+                console.log(JSON.stringify(suc));
+
+                //设备在线状态 status=0 ：不在线 1：在线
+                if(suc.status){
+                    var status = suc.status;
+                    if(status == 0){
+                        JDSMART.app.config({showOnline:true});
+                        self.showMa=true;
+                    }else{
+                        JDSMART.app.config({showOnline:false});
+                        self.showMa=false;
+                    }
+                }
+                //遍历stream数组刷新页面各个参数值
+                $.each(suc["streams"], function(i,val){
+                    if(val["stream_id"] == "power"){
+                        if( parseInt(val["current_value"])==0){
+                            self.power_state =true;
+                            self.power_text="空调已关闭";
+                        }else{
+                            self.power_state =false;
+                            self.power_text="空调已开启";
+                        }
+                    }
+                    if(val["stream_id"] == "curtemp"){
+                        if(parseInt(val["current_value"])>=32){
+                            self.newtemp=32;
+                        }else if(parseInt(val["current_value"])<=16){
+                            self.newtemp =16;
+                        }else{
+                            self.newtemp =parseInt(val["current_value"]);
+                        }
+                    }
+                    if(val["stream_id"] == "settemp"){
+                        if(parseInt(val["current_value"])>=32){
+                            self.countNumber=32;
+                            self.$refs.counter.incDisabled=true;
+                        }else if(parseInt(val["current_value"])<=16){
+                            self.countNumber =16;
+                            self.$refs.counter.decDisabled=true;
+                        }else{
+                            self.countNumber =parseInt(val["current_value"]);
+                            self.$refs.counter.decDisabled=false;
+                            self.$refs.counter.incDisabled=false;
+                        }
+                    }
+
+                    if(val["stream_id"] == "mode"){// 模式
+                        if(parseInt(val["current_value"])==0){
+                            self.mode_s="制冷";
+                        }else if(parseInt(val["current_value"])==1){
+                            self.mode_s="制热";
+                        }else if(parseInt(val["current_value"])==3){
+                            self.mode_s="通风";
+                        }
+                        self.grid_active_id=parseInt(val["current_value"]);
+                        if(parseInt(val["current_value"])==0){
+                            $("header").attr("class","blue_bg");
+                        }else if(parseInt(val["current_value"])==1){
+                            $("header").attr("class","orange_bg");
+                        }else{
+                            $("header").attr("class","green_bg");
+                        }
+                    }
+
+                    if(val["stream_id"] == "mark"){
+                        var t_str="";
+                        var value=parseInt(val["current_value"]);
+                        if(value==0){
+                            t_str="自动";
+                        }else if(value==1){
+                            t_str="低速";
+                        }else if(value==2){
+                            t_str="中速";
+                        }else if(value==3){
+                            t_str="高速";
+                        }
+                        self.wind_s=t_str;
+                        self.range_data_array.value={value:parseInt(val["current_value"]),
+                            text:t_str
+                        };
+                    }
+                });
+            },updatePage:function(){
+                //暂无
+            },controlDevice:function(command, callback){
+                JDSMART.io.controlDevice(      //控制设备接口：如开关
+                    command,
+                    function(suc) {
+                        if(callback)
+                            callback(suc);
+                    },
+                    function(error) {
+                        toast(error.errorInfo);
+                    }
+                );
+            },
+            toast:function(str){
+                JDSMART.toast({"message":str},null);
+            }
+        }
+    });
+</script>
+</body>
+</html>
